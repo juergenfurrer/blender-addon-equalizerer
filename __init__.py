@@ -107,8 +107,17 @@ class OBJECT_OT_equalizerer(Operator):
 
 
     def execute(self, context):
-        scene = bpy.context.scene
         src_obj = bpy.context.selected_objects[0]
+
+        scene = bpy.context.scene
+        scene.frame_set(1)
+
+        any_animation = False
+        if [getattr(src_obj.data, 'shape_keys', None)]:
+            any_animation = True
+
+        if src_obj.active_material and src_obj.active_material.node_tree.animation_data.action:
+            any_animation = True
 
         if not scene.sequence_editor:
             scene.sequence_editor_create()
@@ -118,8 +127,13 @@ class OBJECT_OT_equalizerer(Operator):
         if sound:
             soundstrip = scene.sequence_editor.sequences.new_sound("sound", sound, 3, 1)
             scene.frame_end = soundstrip.frame_duration
-        scene.frame_set(1)
 
+        # Animation is missing
+        if not any_animation:
+            self.report({'ERROR'}, "At least one animation has to be ")
+            return {'CANCELLED'}
+
+        # get values from dialog
         frequencyStart = self.frequencyStart
         frequencyEnd = self.frequencyEnd
         frequencyFraction = self.frequencyFraction
@@ -142,43 +156,53 @@ class OBJECT_OT_equalizerer(Operator):
             frequencies.append(loopFreq)
             loopFreq = loopFreq + math.ceil(loopFreq / frequencyFraction)
 
+        # loop all rows
         for h in range(historyRowsCount):
             scene.frame_set(1 + h * historyFramesOffset)
+            # loop all frequencies
             for f in range(len(frequencies)):
                 bpy.ops.object.select_all(action='DESELECT')
                 bpy.context.view_layer.objects.active = src_obj
                 src_obj.select_set(True)
                 bpy.ops.object.duplicate()
                 active = bpy.context.active_object
-                # move to the 
+
+                # move the new object to the location in the grid
                 active.location.x = (active.dimensions.x * offsetX * f) + (active.dimensions.x * historyX * h)
                 active.location.y = (active.dimensions.y * offsetY * f) + (active.dimensions.y * historyY * h)
                 active.location.z = (active.dimensions.z * offsetZ * f) + (active.dimensions.z * historyZ * h)
+
                 if sound:
+                    # copy the material from source object
+                    if src_obj.active_material and src_obj.active_material.node_tree.animation_data.action:
+                        active.active_material = src_obj.active_material.copy()
+                        active.active_material.node_tree.animation_data.action = src_obj.active_material.node_tree.animation_data.action.copy()
                     # define the frquency to bake
                     lowF = frequencies[f]
                     highF = frequencyEnd if f+1 >= len(frequencies) else frequencies[f+1]
                     # select the object
                     bpy.ops.object.select_all(action='DESELECT')
-                    active.select_set(True) 
+                    active.select_set(True)
+                    # switch to GRAPH_EDITOR
                     area = bpy.context.area
                     area_type = area.type
                     area.type = 'GRAPH_EDITOR'
+                    # bake the sound
                     bpy.ops.anim.channels_select_all(action='SELECT')
                     bpy.ops.graph.sound_bake(filepath=sound, low=lowF, high=highF)
                     area.type = area_type
 
+        # back to frame 1
         scene.frame_set(1)
+
+        # TODO: Hide the original, the hide_viewport is not unhidable?!?
         #src_obj.hide_viewport = True
 
         return {'FINISHED'}
 
 
-# Registration
-
 def menu_func(self, context):
-    self.layout.operator(
-        OBJECT_OT_equalizerer.bl_idname)
+    self.layout.operator(OBJECT_OT_equalizerer.bl_idname)
 
 
 def register():
