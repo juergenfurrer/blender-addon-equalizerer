@@ -20,6 +20,7 @@ from bpy.types import (
     PropertyGroup
 )
 from bpy.props import (
+    BoolProperty,
     FloatVectorProperty,
     IntProperty,
     FloatProperty,
@@ -60,14 +61,14 @@ class OBJECT_OT_equalizerer(Operator):
         max = 20,
     )
 
-    offset: FloatVectorProperty(
+    columnOffset: FloatVectorProperty(
         name = "Bars Offset",
         description = "Offset of the bars (cols)",
         default = (1, 0, 0),
         subtype = 'XYZ',
     )
 
-    historyRowsCount: IntProperty(
+    rowsCount: IntProperty(
         name = "Row Count",
         description = "Rows to use (will take some times)",
         default = 1,
@@ -75,7 +76,7 @@ class OBJECT_OT_equalizerer(Operator):
         max = 100,
     )
 
-    historyFramesOffset: IntProperty(
+    rowFramesOffset: IntProperty(
         name = "Row offset in frames",
         description = "Offset in frames for every row",
         default = 1,
@@ -83,19 +84,18 @@ class OBJECT_OT_equalizerer(Operator):
         max = 600,
     )
 
-    offsetHistory: FloatVectorProperty(
+    rowOffset: FloatVectorProperty(
         name = "Bars Offset",
         description = "Offset of the bars (cols)",
         default = (0, 1, 0),
         subtype = 'XYZ',
     )
 
-    soundPath: StringProperty(
-        name = "Sound Path",
-        description = "Sound to use for the equalizerer, first define the size, set this value at the end!",
-        subtype = 'FILE_PATH',
+    bakeSound: BoolProperty(
+        name = "Bake sound",
+        description = "This will take some time, enable this after you are happy with the grid...",
+        default = False
     )
-
 
     @classmethod
     def poll(cls, context):
@@ -112,53 +112,44 @@ class OBJECT_OT_equalizerer(Operator):
         scene = bpy.context.scene
         scene.frame_set(1)
 
+        # check if any animation is set to the source object
         any_animation = False
         if [getattr(src_obj.data, 'shape_keys', None)]:
             any_animation = True
-
         if src_obj.active_material and src_obj.active_material.node_tree.animation_data.action:
             any_animation = True
 
+        # create the sequence_editor if not present
         if not scene.sequence_editor:
             scene.sequence_editor_create()
 
-        # Define Sound and add it...
-        sound = self.soundPath
-        if sound:
-            soundstrip = scene.sequence_editor.sequences.new_sound("sound", sound, 3, 1)
-            scene.frame_end = soundstrip.frame_duration
+        # select the soundstrip from sequence_editor
+        for sequence in scene.sequence_editor.sequences:
+            if sequence.type != 'SOUND':
+                continue
+            sound_path = sequence.sound.filepath
 
         # Animation is missing
         if not any_animation:
-            self.report({'ERROR'}, "At least one animation has to be ")
+            self.report({'ERROR'}, "At least one animation has to be set on the selected object")
             return {'CANCELLED'}
 
-        # get values from dialog
-        frequencyStart = self.frequencyStart
-        frequencyEnd = self.frequencyEnd
-        frequencyFraction = self.frequencyFraction
+        # sound_path is missing
+        if not sound_path:
+            self.report({'ERROR'}, "Sound is missing, add a sound sequence to the Video Editor")
+            return {'CANCELLED'}
 
-        offsetX = self.offset.x
-        offsetY = self.offset.y
-        offsetZ = self.offset.z
-
-        historyFramesOffset = self.historyFramesOffset
-        historyRowsCount = self.historyRowsCount
-        historyX = self.offsetHistory.x
-        historyY = self.offsetHistory.y
-        historyZ = self.offsetHistory.z
-
-        loopFreq = frequencyStart
+        loopFreq = self.frequencyStart
         frequencies = []
         while True:
-            if loopFreq > frequencyEnd:
+            if loopFreq > self.frequencyEnd:
                 break
             frequencies.append(loopFreq)
-            loopFreq = loopFreq + math.ceil(loopFreq / frequencyFraction)
+            loopFreq = loopFreq + math.ceil(loopFreq / self.frequencyFraction)
 
         # loop all rows
-        for h in range(historyRowsCount):
-            scene.frame_set(1 + h * historyFramesOffset)
+        for h in range(self.rowsCount):
+            scene.frame_set(1 + h * self.rowFramesOffset)
             # loop all frequencies
             for f in range(len(frequencies)):
                 bpy.ops.object.select_all(action='DESELECT')
@@ -168,18 +159,18 @@ class OBJECT_OT_equalizerer(Operator):
                 active = bpy.context.active_object
 
                 # move the new object to the location in the grid
-                active.location.x = (active.dimensions.x * offsetX * f) + (active.dimensions.x * historyX * h)
-                active.location.y = (active.dimensions.y * offsetY * f) + (active.dimensions.y * historyY * h)
-                active.location.z = (active.dimensions.z * offsetZ * f) + (active.dimensions.z * historyZ * h)
+                active.location.x = (active.dimensions.x * self.columnOffset.x * f) + (active.dimensions.x * self.rowOffset.x * h)
+                active.location.y = (active.dimensions.y * self.columnOffset.y * f) + (active.dimensions.y * self.rowOffset.y * h)
+                active.location.z = (active.dimensions.z * self.columnOffset.z * f) + (active.dimensions.z * self.rowOffset.z * h)
 
-                if sound:
+                if self.bakeSound and sound_path:
                     # copy the material from source object
                     if src_obj.active_material and src_obj.active_material.node_tree.animation_data.action:
                         active.active_material = src_obj.active_material.copy()
                         active.active_material.node_tree.animation_data.action = src_obj.active_material.node_tree.animation_data.action.copy()
                     # define the frquency to bake
                     lowF = frequencies[f]
-                    highF = frequencyEnd if f+1 >= len(frequencies) else frequencies[f+1]
+                    highF = self.frequencyEnd if f+1 >= len(frequencies) else frequencies[f+1]
                     # select the object
                     bpy.ops.object.select_all(action='DESELECT')
                     active.select_set(True)
@@ -189,7 +180,7 @@ class OBJECT_OT_equalizerer(Operator):
                     area.type = 'GRAPH_EDITOR'
                     # bake the sound
                     bpy.ops.anim.channels_select_all(action='SELECT')
-                    bpy.ops.graph.sound_bake(filepath=sound, low=lowF, high=highF)
+                    bpy.ops.graph.sound_bake(filepath=sound_path, low=lowF, high=highF)
                     area.type = area_type
 
         # back to frame 1
