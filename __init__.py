@@ -114,10 +114,15 @@ class OBJECT_OT_equalizerer(Operator):
 
         # check if any animation is set to the source object
         any_animation = False
+        has_animated_material = False
         if [getattr(src_obj.data, 'shape_keys', None)]:
             any_animation = True
-        if src_obj.active_material and src_obj.active_material.node_tree.animation_data.action:
-            any_animation = True
+        if src_obj.active_material:
+            if src_obj.active_material.node_tree:
+                if src_obj.active_material.node_tree.animation_data:
+                    if src_obj.active_material.node_tree.animation_data.action:
+                        any_animation = True
+                        has_animated_material = True
 
         # create the sequence_editor if not present
         if not scene.sequence_editor:
@@ -127,7 +132,7 @@ class OBJECT_OT_equalizerer(Operator):
         for sequence in scene.sequence_editor.sequences:
             if sequence.type != 'SOUND':
                 continue
-            sound_path = sequence.sound.filepath
+            sound_path = bpy.path.abspath(sequence.sound.filepath)
 
         # Animation is missing
         if not any_animation:
@@ -165,7 +170,7 @@ class OBJECT_OT_equalizerer(Operator):
 
                 if self.bakeSound and sound_path:
                     # copy the material from source object
-                    if src_obj.active_material and src_obj.active_material.node_tree.animation_data.action:
+                    if has_animated_material:
                         active.active_material = src_obj.active_material.copy()
                         active.active_material.node_tree.animation_data.action = src_obj.active_material.node_tree.animation_data.action.copy()
                     # define the frquency to bake
