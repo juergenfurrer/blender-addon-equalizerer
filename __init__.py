@@ -106,7 +106,6 @@ class OBJECT_OT_equalizerer(Operator):
         src_obj = bpy.context.selected_objects[0]
 
         scene = bpy.context.scene
-        scene.frame_set(1)
 
         # check if any animation is set to the source object
         any_animation = False
@@ -126,10 +125,14 @@ class OBJECT_OT_equalizerer(Operator):
 
         # select the soundstrip from sequence_editor
         sound_path = None
+        sound_offset = 1
         for sequence in scene.sequence_editor.sequences:
             if sequence.type != 'SOUND':
                 continue
             sound_path = bpy.path.abspath(sequence.sound.filepath)
+            sound_offset = sequence.frame_start
+
+        scene.frame_set(sound_offset)
 
         # Animation is missing
         if not any_animation:
@@ -151,7 +154,7 @@ class OBJECT_OT_equalizerer(Operator):
 
         # loop all rows
         for h in range(self.rowsCount):
-            scene.frame_set(1 + h * self.rowFramesOffset)
+            scene.frame_set(sound_offset + h * self.rowFramesOffset)
             # loop all frequencies
             for f in range(len(frequencies)):
                 bpy.ops.object.select_all(action='DESELECT')
@@ -186,7 +189,7 @@ class OBJECT_OT_equalizerer(Operator):
                     area.type = area_type
 
         # back to frame 1
-        scene.frame_set(1)
+        scene.frame_set(sound_offset)
 
         # TODO: Hide the original, the hide_viewport is not unhidable?!?
         #src_obj.hide_viewport = True
