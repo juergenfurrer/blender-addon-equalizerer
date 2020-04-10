@@ -25,6 +25,7 @@ from bpy.props import (
     IntProperty,
     FloatProperty,
     StringProperty,
+    EnumProperty,
 )
 
 
@@ -34,8 +35,41 @@ class OBJECT_OT_equalizerer(Operator):
     bl_description = "Use sound to turn a mesh into a part of an animated equalizer"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
+    def properties_changed(self):
+        return (
+            self.tmp_frequencyStart != self.frequencyStart or
+            self.tmp_frequencyEnd != self.frequencyEnd or
+            self.tmp_frequencyFraction != self.frequencyFraction or
+            self.tmp_columnOffset != self.columnOffset or
+            self.tmp_rowsCount != self.rowsCount or
+            self.tmp_rowFramesOffset != self.rowFramesOffset or
+            self.tmp_rowOffset != self.rowOffset or
+            self.tmp_soundSequence != self.soundSequence or
+            self.tmp_bakeSound != self.bakeSound
+        )
+
+    def update_properties(self):
+        self.tmp_frequencyStart = self.frequencyStart
+        self.tmp_frequencyEnd = self.frequencyEnd
+        self.tmp_frequencyFraction = self.frequencyFraction
+        self.tmp_columnOffset = self.columnOffset
+        self.tmp_rowsCount = self.rowsCount
+        self.tmp_rowFramesOffset = self.rowFramesOffset
+        self.tmp_rowOffset = self.rowOffset
+        self.tmp_soundSequence = self.soundSequence
+        self.tmp_bakeSound = self.bakeSound
+
+    tmp_frequencyStart = 0
+    tmp_frequencyEnd = 0
+    tmp_frequencyFraction = 0
+    tmp_columnOffset = (0, 0, 0)
+    tmp_rowsCount = 0
+    tmp_rowFramesOffset = 0
+    tmp_rowOffset = (0, 0, 0)
+    tmp_soundSequence = ''
+    tmp_bakeSound = False
 
     frequencyStart: IntProperty(
         name = "Frequency Start",
@@ -91,11 +125,39 @@ class OBJECT_OT_equalizerer(Operator):
         subtype = 'XYZ',
     )
 
+    def sound_sequence_callback(self, context):
+        scene = context.scene
+        if not scene.sequence_editor:
+            scene.sequence_editor_create()
+        sound_sequences = []
+        for sequence in scene.sequence_editor.sequences:
+            if sequence.type != 'SOUND':
+                continue
+            sound_sequences.append((sequence.sound.name, sequence.sound.name, sequence.sound.filepath))
+        return sound_sequences
+
+    soundSequence: EnumProperty(
+        name = "Sound sequence",
+        description = "",
+        items = sound_sequence_callback,
+        default = None,
+        options = {'ANIMATABLE'},
+        update = None,
+        get = None,
+        set = None
+    )
+
     bakeSound: BoolProperty(
         name = "Bake sound",
         description = "This will take some time, enable this after you are happy with the grid...",
         default = False
     )
+
+
+    def invoke(self, context, event):
+        self.bakeSound = False
+        return self.execute(context)
+
 
     @classmethod
     def poll(cls, context):
@@ -103,9 +165,15 @@ class OBJECT_OT_equalizerer(Operator):
 
 
     def execute(self, context):
-        src_obj = bpy.context.selected_objects[0]
+        src_obj = context.selected_objects[0]
+        scene = context.scene
 
-        scene = bpy.context.scene
+        # if the no property was changed, do nothing
+        if not self.properties_changed():
+            return {'CANCELLED'}
+
+        # update temp-props
+        self.update_properties()
 
         # check if any animation is set to the source object
         any_animation = False
@@ -127,7 +195,7 @@ class OBJECT_OT_equalizerer(Operator):
         sound_path = None
         sound_offset = 1
         for sequence in scene.sequence_editor.sequences:
-            if sequence.type != 'SOUND':
+            if sequence.type != 'SOUND' or self.soundSequence != sequence.sound.name:
                 continue
             sound_path = bpy.path.abspath(sequence.sound.filepath)
             sound_offset = sequence.frame_start
@@ -158,10 +226,10 @@ class OBJECT_OT_equalizerer(Operator):
             # loop all frequencies
             for f in range(len(frequencies)):
                 bpy.ops.object.select_all(action='DESELECT')
-                bpy.context.view_layer.objects.active = src_obj
+                context.view_layer.objects.active = src_obj
                 src_obj.select_set(True)
                 bpy.ops.object.duplicate()
-                active = bpy.context.active_object
+                active = context.active_object
 
                 # move the new object to the location in the grid
                 active.location.x = (active.dimensions.x * self.columnOffset.x * f) + (active.dimensions.x * self.rowOffset.x * h)
@@ -180,7 +248,7 @@ class OBJECT_OT_equalizerer(Operator):
                     bpy.ops.object.select_all(action='DESELECT')
                     active.select_set(True)
                     # switch to GRAPH_EDITOR
-                    area = bpy.context.area
+                    area = context.area
                     area_type = area.type
                     area.type = 'GRAPH_EDITOR'
                     # bake the sound
