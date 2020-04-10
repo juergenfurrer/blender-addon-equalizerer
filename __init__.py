@@ -102,10 +102,6 @@ class OBJECT_OT_equalizerer(Operator):
         return context.object.select_get() and (context.object.type == 'MESH' or context.object.type == 'SURFACE')
 
 
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
-
-
     def execute(self, context):
         src_obj = bpy.context.selected_objects[0]
 
@@ -115,7 +111,7 @@ class OBJECT_OT_equalizerer(Operator):
         # check if any animation is set to the source object
         any_animation = False
         has_animated_material = False
-        if [getattr(src_obj.data, 'shape_keys', None)]:
+        if src_obj.animation_data.action != None:
             any_animation = True
         if src_obj.active_material:
             if src_obj.active_material.node_tree:
@@ -129,6 +125,7 @@ class OBJECT_OT_equalizerer(Operator):
             scene.sequence_editor_create()
 
         # select the soundstrip from sequence_editor
+        sound_path = None
         for sequence in scene.sequence_editor.sequences:
             if sequence.type != 'SOUND':
                 continue
