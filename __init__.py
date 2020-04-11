@@ -192,15 +192,16 @@ class OBJECT_OT_equalizerer(Operator):
             scene.sequence_editor_create()
 
         # select the soundstrip from sequence_editor
+        has_sound = False
         sound_path = None
         sound_offset = 1
         for sequence in scene.sequence_editor.sequences:
-            if sequence.type != 'SOUND' or self.soundSequence != sequence.sound.name:
+            if sequence.type != 'SOUND':
                 continue
-            sound_path = bpy.path.abspath(sequence.sound.filepath)
-            sound_offset = sequence.frame_start
-
-        scene.frame_set(sound_offset)
+            has_sound = True
+            if self.soundSequence == sequence.sound.name:
+                sound_path = bpy.path.abspath(sequence.sound.filepath)
+                sound_offset = sequence.frame_start
 
         # Animation is missing
         if not any_animation:
@@ -208,9 +209,11 @@ class OBJECT_OT_equalizerer(Operator):
             return {'CANCELLED'}
 
         # sound_path is missing
-        if not sound_path:
+        if not has_sound:
             self.report({'ERROR'}, "Sound is missing, add a sound sequence to the Video Editor")
             return {'CANCELLED'}
+
+        scene.frame_set(sound_offset)
 
         loopFreq = self.frequencyStart
         frequencies = []
