@@ -178,7 +178,7 @@ class OBJECT_OT_equalizerer(Operator):
         # check if any animation is set to the source object
         any_animation = False
         has_animated_material = False
-        if src_obj.animation_data.action != None:
+        if src_obj.animation_data and src_obj.animation_data.action != None:
             any_animation = True
         if src_obj.active_material:
             if src_obj.active_material.node_tree:
