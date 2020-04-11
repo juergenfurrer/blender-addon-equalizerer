@@ -119,8 +119,8 @@ class OBJECT_OT_equalizerer(Operator):
     )
 
     rowOffset: FloatVectorProperty(
-        name = "Bars Offset",
-        description = "Offset of the bars (cols)",
+        name = "Rows Offset",
+        description = "Offset of the rows (cols)",
         default = (0, 1, 0),
         subtype = 'XYZ',
     )
