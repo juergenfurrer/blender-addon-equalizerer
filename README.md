@@ -1,2 +1,3 @@
-# blender-plugin-equilizerer
-Creates an Equilizer animation from a simple mesh
+# blender-addon-equalizerer
+
+Creates an Equalizer animation from a simple mesh
