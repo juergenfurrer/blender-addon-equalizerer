@@ -235,9 +235,9 @@ class OBJECT_OT_equalizerer(Operator):
                 active = context.active_object
 
                 # move the new object to the location in the grid
-                active.location.x = (active.dimensions.x * self.columnOffset.x * f) + (active.dimensions.x * self.rowOffset.x * h)
-                active.location.y = (active.dimensions.y * self.columnOffset.y * f) + (active.dimensions.y * self.rowOffset.y * h)
-                active.location.z = (active.dimensions.z * self.columnOffset.z * f) + (active.dimensions.z * self.rowOffset.z * h)
+                active.location.x += (active.dimensions.x * self.columnOffset.x * f) + (active.dimensions.x * self.rowOffset.x * h)
+                active.location.y += (active.dimensions.y * self.columnOffset.y * f) + (active.dimensions.y * self.rowOffset.y * h)
+                active.location.z += (active.dimensions.z * self.columnOffset.z * f) + (active.dimensions.z * self.rowOffset.z * h)
 
                 if self.bakeSound and sound_path:
                     # copy the material from source object
