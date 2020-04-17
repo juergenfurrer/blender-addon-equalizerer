@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Equalizerer",
     "author": "Juergen Furrer",
-    "version": (0, 0, 1),
+    "version": (0, 1, 0),
     "blender": (2, 80, 0),
     "location": "View3D > Object",
     "description": "Use sound to turn a mesh into a part of an animated equalizer",
@@ -42,10 +42,14 @@ class OBJECT_OT_equalizerer(Operator):
             self.tmp_frequencyStart != self.frequencyStart or
             self.tmp_frequencyEnd != self.frequencyEnd or
             self.tmp_frequencyFraction != self.frequencyFraction or
-            self.tmp_columnOffset != self.columnOffset or
+            self.tmp_columnOffset[0] != self.columnOffset[0] or
+            self.tmp_columnOffset[1] != self.columnOffset[1] or
+            self.tmp_columnOffset[2] != self.columnOffset[2] or
             self.tmp_rowsCount != self.rowsCount or
             self.tmp_rowFramesOffset != self.rowFramesOffset or
-            self.tmp_rowOffset != self.rowOffset or
+            self.tmp_rowOffset[0] != self.rowOffset[0] or
+            self.tmp_rowOffset[1] != self.rowOffset[1] or
+            self.tmp_rowOffset[2] != self.rowOffset[2] or
             self.tmp_soundSequence != self.soundSequence or
             self.tmp_bakeSound != self.bakeSound
         )
@@ -54,10 +58,10 @@ class OBJECT_OT_equalizerer(Operator):
         self.tmp_frequencyStart = self.frequencyStart
         self.tmp_frequencyEnd = self.frequencyEnd
         self.tmp_frequencyFraction = self.frequencyFraction
-        self.tmp_columnOffset = self.columnOffset
+        self.tmp_columnOffset = (self.columnOffset[0], self.columnOffset[1], self.columnOffset[2])
         self.tmp_rowsCount = self.rowsCount
         self.tmp_rowFramesOffset = self.rowFramesOffset
-        self.tmp_rowOffset = self.rowOffset
+        self.tmp_rowOffset = (self.rowOffset[0], self.rowOffset[1], self.rowOffset[2])
         self.tmp_soundSequence = self.soundSequence
         self.tmp_bakeSound = self.bakeSound
 
@@ -89,7 +93,7 @@ class OBJECT_OT_equalizerer(Operator):
 
     frequencyFraction: FloatProperty(
         name = "Bar Fraction",
-        description = "Frequency fraction to us (previous frequency-diff * 2 + frequency-diff * fraction)",
+        description = "Frequency fraction to us (previous frequency-diff + frequency-diff * fraction)",
         default = 4,
         min = .1,
         max = 20,
@@ -168,7 +172,7 @@ class OBJECT_OT_equalizerer(Operator):
         src_obj = context.selected_objects[0]
         scene = context.scene
 
-        # if the no property was changed, do nothing
+        # if no property was changed, do nothing
         if not self.properties_changed():
             return {'CANCELLED'}
 
